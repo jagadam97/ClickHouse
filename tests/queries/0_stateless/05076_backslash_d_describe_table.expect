@@ -47,6 +47,11 @@ type_and_submit {\d ;}
 expect -ex "backslash_d_table"
 expect ":) "
 
+# A `SHOW TABLES` clause is not a table name.
+type_and_submit {\d like 'backslash\_d\_table'}
+expect -ex "backslash_d_table"
+expect ":) "
+
 # With a table name the columns of that table are shown.
 type_and_submit {\d backslash_d_table}
 expect -ex "id"

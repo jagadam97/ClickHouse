@@ -206,6 +206,26 @@ namespace
 
 constexpr UInt64 THREAD_GROUP_ID = 0;
 
+bool backslashArgumentIsTableName(std::string_view argument)
+{
+    const size_t first = argument.find_first_not_of(" \t");
+    if (first == std::string_view::npos)
+        return false;
+
+    size_t last = first;
+    while (last < argument.size() && !isWhitespaceASCII(argument[last]) && argument[last] != ';')
+        ++last;
+
+    const std::string word = toLowerCopyASCII(argument.substr(first, last - first));
+    if (word.empty())
+        return false;
+
+    static const std::unordered_set<std::string> show_tables_clauses =
+        {"from", "in", "not", "like", "ilike", "where", "limit", "into", "format", "settings"};
+
+    return !show_tables_clauses.contains(word);
+}
+
 /// Returns true if any `ASTTableExpression` in the query tree carries a `STREAM` modifier.
 bool hasStreamingTableExpression(const DB::IAST & ast)
 {
@@ -4946,8 +4966,7 @@ void ClientBase::runInteractive()
                 it += alias.size();
                 if (it == input.end() || isWhitespaceASCII(*it))
                 {
-                    const bool has_argument = std::any_of(it, input.end(), [](char c) { return !isWhitespaceASCII(c) && c != ';'; });
-                    String new_input = has_argument ? command_with_argument : command;
+                    String new_input = backslashArgumentIsTableName(std::string_view(it, input.end())) ? command_with_argument : command;
                     // append the rest of input to the command
                     // for parameters support, e.g. \c db_name -> USE db_name
                     new_input.append(it, input.end());
