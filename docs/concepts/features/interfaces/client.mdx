@@ -221,6 +221,10 @@ You can use the following aliases from within the REPL:
 - `\c <DATABASE>` - USE DATABASE
 - `.` - repeat the last query
 
+Whatever follows an alias is appended to the query it stands for, so `\l LIKE 'system'` runs `SHOW DATABASES LIKE 'system'` and `\d FROM system` runs `SHOW TABLES FROM system`. `\d` stands for `DESCRIBE TABLE` when a table name follows it and for `SHOW TABLES` when what follows continues that query, as in `\d LIKE 'hits%'`.
+
+An alias is recognized only at the beginning of the input and only when a space or the end of the line follows it, so `\ld` and `\c;` are sent to the server as they are.
+
 ### Keyboard shortcuts {#keyboard_shortcuts}
 
 - `Alt (Option) + Shift + e` - open editor with the current query. It is possible to specify the editor to use with the environment variable `EDITOR`. By default, `vim` is used.
