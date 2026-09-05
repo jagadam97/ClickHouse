@@ -1,0 +1,62 @@
+#!/usr/bin/expect -f
+
+# The `\d` shortcut of the interactive client follows PostgreSQL: alone it lists the tables
+# (`SHOW TABLES`), with a table name it describes that table (`DESCRIBE TABLE`).
+
+set basedir [file dirname $argv0]
+set basename [file tail $argv0]
+if {[info exists env(CLICKHOUSE_TMP)]} {
+    set CLICKHOUSE_TMP $env(CLICKHOUSE_TMP)
+} else {
+    set CLICKHOUSE_TMP "."
+}
+exp_internal -f $CLICKHOUSE_TMP/$basename.debuglog 0
+set history_file $CLICKHOUSE_TMP/$basename.history
+
+log_user 0
+set timeout 60
+match_max 100000
+
+expect_after {
+    -i $any_spawn_id eof     { exp_continue }
+    -i $any_spawn_id timeout { exit 1 }
+}
+
+# `replxx` treats a `\r` that arrives in the same read as the characters before it as a newline
+# inside one input instead of as a submission, so every input is typed first, awaited in its echo,
+# and only then submitted with a `\r` of its own.
+proc type_and_submit {text} {
+    send -- $text
+    expect -ex $text
+    send -- "\r"
+}
+
+spawn bash -c "source $basedir/../shell_config.sh ; \$CLICKHOUSE_CLIENT_BINARY \$CLICKHOUSE_CLIENT_EXPECT_OPT --history_file=$history_file"
+expect ":) "
+
+type_and_submit {CREATE TABLE backslash_d_table (id UInt64, name String) ENGINE = Memory}
+expect ":) "
+
+# Without an argument the tables of the current database are listed.
+type_and_submit {\d}
+expect -ex "backslash_d_table"
+expect ":) "
+
+# A trailing semicolon is not an argument.
+type_and_submit {\d ;}
+expect -ex "backslash_d_table"
+expect ":) "
+
+# With a table name the columns of that table are shown.
+type_and_submit {\d backslash_d_table}
+expect -ex "id"
+expect -ex "UInt64"
+expect -ex "name"
+expect -ex "String"
+expect ":) "
+
+type_and_submit {DROP TABLE backslash_d_table}
+expect ":) "
+
+send -- "\4"
+expect eof

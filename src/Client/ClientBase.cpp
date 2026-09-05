@@ -4881,11 +4881,18 @@ void ClientBase::runInteractive()
     /// Enable bracketed-paste-mode so that we are able to paste multiline queries as a whole.
     lr->enableBracketedPaste();
 
-    static const std::initializer_list<std::pair<String, String>> backslash_aliases =
+    struct BackslashAlias
+    {
+        String alias;
+        String command;
+        String command_with_argument;
+    };
+
+    static const std::initializer_list<BackslashAlias> backslash_aliases =
         {
-            { "\\l", "SHOW DATABASES" },
-            { "\\d", "SHOW TABLES" },
-            { "\\c", "USE" },
+            { "\\l", "SHOW DATABASES", "SHOW DATABASES" },
+            { "\\d", "SHOW TABLES", "DESCRIBE TABLE" },
+            { "\\c", "USE", "USE" },
         };
 
     static const std::initializer_list<String> repeat_last_input_aliases =
@@ -4931,7 +4938,7 @@ void ClientBase::runInteractive()
             has_vertical_output_suffix = true;
         }
 
-        for (const auto & [alias, command] : backslash_aliases)
+        for (const auto & [alias, command, command_with_argument] : backslash_aliases)
         {
             auto it = std::search(input.begin(), input.end(), alias.begin(), alias.end());
             if (it != input.end() && std::all_of(input.begin(), it, isWhitespaceASCII))
@@ -4939,7 +4946,8 @@ void ClientBase::runInteractive()
                 it += alias.size();
                 if (it == input.end() || isWhitespaceASCII(*it))
                 {
-                    String new_input = command;
+                    const bool has_argument = std::any_of(it, input.end(), [](char c) { return !isWhitespaceASCII(c) && c != ';'; });
+                    String new_input = has_argument ? command_with_argument : command;
                     // append the rest of input to the command
                     // for parameters support, e.g. \c db_name -> USE db_name
                     new_input.append(it, input.end());
